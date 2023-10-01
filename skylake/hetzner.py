@@ -32,11 +32,22 @@ class HetznerClient:
 
         return datacenter
 
-    def _get_image(self, image_name: str) -> BoundImage:
+    def _get_image(
+        self, image_name: str, image_is_snapshot: bool = False
+    ) -> BoundImage:
+        types = ["system"]
+        if image_is_snapshot:
+            types = ["snapshot"]
+
         # Source servers only run on x86 as far as I am aware.
-        image_list = self.client.images.get_list(architecture=["x86"])
+        image_list = self.client.images.get_list(architecture=["x86"], type=types)
         image = next(
-            (image for image in image_list.images if image.name == image_name), None
+            (
+                image
+                for image in image_list.images
+                if image.name == image_name or image.description == image_name
+            ),
+            None,
         )
         if not image:
             raise ValueError("Invalid image name.")
@@ -51,11 +62,15 @@ class HetznerClient:
             raise ValueError("Invalid SKU.")
         return requested_type
 
-    def create_server_from_scratch(
-        self, datacenter_name: str, sku: str = "cpx31", image_name: str = "debian-11"
+    def create_server(
+        self,
+        datacenter_name: str,
+        sku: str = "cpx31",
+        image_name: str = "debian-11",
+        image_is_snapshot: bool = False,
     ) -> CreateServerResponse:
         server_type = self._get_server_type(sku)
-        image = self._get_image(image_name)
+        image = self._get_image(image_name, image_is_snapshot=image_is_snapshot)
         datacenter = self._get_datacenter(datacenter_name)
 
         server_response = self.client.servers.create(
